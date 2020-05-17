@@ -2,6 +2,7 @@ import mysql.connector
 import math
 import numpy as np
 import tests
+from time import perf_counter_ns as pc
 
 
 class Node:
@@ -144,6 +145,7 @@ def get_beer_types():
 
 
 if __name__ == "__main__":
+    start = pc()
     sql = mysql.connector.connect(host="localhost", user="root", passwd="", database="beer_test")
     home = (51.355468, 11.100790)
     full_distance = 2000
@@ -161,5 +163,6 @@ if __name__ == "__main__":
         print_beers()
     else:
         print("Nothing found")
-
+    finish = pc()
+    print("\nProgram took: " + str((finish - start) / 1e9) + "s")
 
