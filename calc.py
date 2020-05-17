@@ -85,7 +85,7 @@ def filter_nearest():
     try:
         # get required data of breweries
         cur = sql.cursor()
-        cur.execute("SELECT br.id, br.name, g.latitude, g.longitude "
+        cur.execute("SELECT DISTINCT br.id, br.name, g.latitude, g.longitude "
                     "FROM breweries AS br "
                     "INNER JOIN geocodes AS g "
                     "ON br.id=g.brewery_id")
@@ -107,7 +107,40 @@ def filter_nearest():
                     dist_mat[j][i] = dist_mat[i][j] = get_distance(nearest_dict.get(i)[2], nearest_dict.get(j)[2])
         return dist_mat
     except Exception as ex:
-        print(ex) # do something
+        print(ex)  # do something
+
+
+def print_breweries():
+    """"prints travel route"""
+    print("Found " + str(len(included_dict) - 1) + " beer factories:")
+    cur = head
+    dist = str(round(0.0, 3))
+    while True:
+        print("\t -> " + cur.data[1] + " " + str(cur.data[2][0]) + " " + str(cur.data[2][1]) + " distance " + dist + "km")
+        cur = cur.next
+        dist = str(round(cur.dist, 3))
+        if cur == head:
+            break
+    print("\t <- " + cur.data[1] + " " + str(cur.data[2][0]) + " " + str(cur.data[2][1]) + " distance " + dist + "km\n")
+    print("traveled: " + str(round(traveled, 3)) + "km\n\n")
+
+
+def print_beers():
+    """"prints beers"""
+    print("Collected " + str(len(beers)) + " beer types:")
+    for b in beers:
+        print("\t -> " + b[0])
+
+
+def get_beer_types():
+    """"gets all collected beer types"""
+    cur = sql.cursor()
+    query = "SELECT DISTINCT name FROM beers WHERE brewery_id IN (" +\
+            ','.join([str(i.data[0]) for i in list(included_dict.values()) if i.data[0] != -1]) + ") ORDER BY name ASC"
+    cur.execute(query)
+    data = cur.fetchall()
+    cur.close()
+    return data
 
 
 if __name__ == "__main__":
@@ -119,7 +152,14 @@ if __name__ == "__main__":
     nearest_dict = {}  # dict {distance_matrix_index: brewery}
     included_dict = {head.index: head}  # dict for Nodes included in route
     distance_matrix = filter_nearest()
-    traveled = full_distance - make_route(full_distance)
-    tests.test_route(head, traveled)
-    print("traveled: " + str(traveled) + "km")
+    if len(nearest_dict) > 1:
+        traveled = full_distance - make_route(full_distance)
+        tests.test_route(head, traveled)
+        f = [i.data[0] for i in list(included_dict.values()) if i.data[0] != -1]
+        print_breweries()
+        beers = get_beer_types()
+        print_beers()
+    else:
+        print("Nothing found")
+
 
