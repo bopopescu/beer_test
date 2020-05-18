@@ -2,6 +2,7 @@ import mysql.connector
 import math
 import numpy as np
 import tests
+from sys import argv
 from time import perf_counter_ns as pc
 
 
@@ -11,8 +12,8 @@ class Node:
         self.index = index
         self.dist = dist
         self.next = next
-        self.best_index = -1  # for optimization purpose
-        self.dist_increase_to_best = -1  # for optimization purpose
+        self.best_index = -1  # for time optimization purpose
+        self.dist_increase_to_best = -1  # for time optimization purpose
         self.head = head
 
     def find_best(self):
@@ -34,33 +35,102 @@ class Node:
 def make_route(distance):
     """"makes linked list of selected breweries for route
     :returns traveled distance"""
-    while len(included_dict) < len(nearest_dict):
-        current_node = head
-        min_dist = float("inf")
-        min_index = -1
-        min_node = None
-        while True:
-            if current_node.best_index == -1 or included_dict.get(current_node.index) is not None:
-                current_node.find_best()  # optimization - called at least once per outer iteration instead of foreach node
-            if current_node.dist_increase_to_best < min_dist:
-                min_dist = current_node.dist_increase_to_best
-                min_index = current_node.best_index
-                min_node = current_node
-            current_node = current_node.next
-            if current_node == head:  # emulates do while loop
+    try:
+        while len(included_dict) < len(nearest_dict):
+            current_node = head
+            min_dist = float("inf")
+            min_index = -1
+            min_node = None
+            while True:
+                if current_node.best_index == -1 or included_dict.get(current_node.index) is not None:
+                    current_node.find_best()  # optimization - called at least once per outer iteration instead of foreach node
+                if current_node.dist_increase_to_best < min_dist:
+                    min_dist = current_node.dist_increase_to_best
+                    min_index = current_node.best_index
+                    min_node = current_node
+                current_node = current_node.next
+                if current_node == head:  # emulates do while loop
+                    break
+            if distance - min_node.dist_increase_to_best < 0:
                 break
-        if distance - min_node.dist_increase_to_best < 0:
+            else:
+                distance -= min_node.dist_increase_to_best
+            new_node = Node(nearest_dict.get(min_index), min_index, min_node.next,
+                            distance_matrix[min_index][min_node.next.index])
+            min_node.next = new_node
+            min_node.best_index = -1
+            min_node.dist_increase_to_best = -1
+            min_node.dist = distance_matrix[min_node.index][new_node.index]
+            included_dict.update({new_node.index: new_node})
+        return distance
+    except Exception as ex:
+        print("Something went wrong, errno:4")  # do something
+
+
+def find_worst():
+    """"finds node's witch will be removed parent
+    :returns tuple of parent node and distance decrease"""
+    current_node = head
+    max_increase = 0.0
+    min_node = None
+    while current_node.next != head:
+        if current_node.best_index == -1 or included_dict.get(current_node.index) is not None:
+            current_node.find_best()  # optimization - called at least once per outer iteration instead of foreach node
+        ab = distance_matrix[current_node.index][current_node.next.index]
+        bc = distance_matrix[current_node.next.index][current_node.next.next.index]
+        ac = distance_matrix[current_node.index][current_node.next.next.index]
+        increase = ab + bc - ac
+        if increase > max_increase:
+            max_increase = increase
+            min_node = current_node
+        current_node = current_node.next
+    return min_node, max_increase
+
+
+def find_best_contenders(isolate=()):
+    """"oposite of "find_worst()" finds parent node after witch new|more optimal node will be inserted
+    :returns tuple of parent node and distance increase"""
+    current_node = head
+    min_increase = float("inf")
+    min_node = None
+    while True:
+        if current_node.dist_increase_to_best < min_increase and not isolate.__contains__(current_node.best_index):
+            min_increase = current_node.dist_increase_to_best
+            min_node = current_node
+        current_node = current_node.next
+        if current_node == head:  # emulates do while loop
             break
-        else:
-            distance -= min_node.dist_increase_to_best
-        new_node = Node(nearest_dict.get(min_index), min_index, min_node.next,
-                        distance_matrix[min_index][min_node.next.index])
-        min_node.next = new_node
-        min_node.best_index = -1
-        min_node.dist_increase_to_best = -1
-        min_node.dist = distance_matrix[min_node.index][new_node.index]
-        included_dict.update({new_node.index: new_node})
-    return distance
+    return min_node, min_increase
+
+
+def post_route_optimization(left_dist):
+    """"optimization layer:
+    removes least optimal node ->
+    adds most optimal node ->
+    adds extra nodes to route if possible ->
+    loops everything until changes do not occur
+    :returns left distance"""
+    try:
+        while True:
+            worst = find_worst()
+            best = find_best_contenders((worst[1], worst[0].next.index))
+            if round(worst[1], 3) - round(best[1], 3) > 0:
+                included_dict.pop(worst[0].next.index)
+                worst[0].next = worst[0].next.next
+                worst[0].dist = distance_matrix[worst[0].index][worst[0].next.index]
+
+                new_node = Node(nearest_dict.get(best[0].best_index), best[0].best_index, best[0].next,
+                                distance_matrix[best[0].best_index][best[0].next.index])
+                best[0].next = new_node
+                best[0].dist = distance_matrix[best[0].index][best[0].next.index]
+                included_dict.update({new_node.index: new_node})
+                left_dist = left_dist + worst[1] - best[1]
+                left_dist = make_route(left_dist)
+            else:
+                break
+        return left_dist
+    except Exception as ex:
+        print("Something went wrong, errno:3")  # do something
 
 
 def get_distance(start, finish):
@@ -108,7 +178,7 @@ def filter_nearest():
                     dist_mat[j][i] = dist_mat[i][j] = get_distance(nearest_dict.get(i)[2], nearest_dict.get(j)[2])
         return dist_mat
     except Exception as ex:
-        print(ex)  # do something
+        print("Something went wrong, errno:1")  # do something
 
 
 def print_breweries():
@@ -118,8 +188,8 @@ def print_breweries():
     dist = str(round(0.0, 3))
     while True:
         print("\t -> " + cur.data[1] + " " + str(cur.data[2][0]) + " " + str(cur.data[2][1]) + " distance " + dist + "km")
-        cur = cur.next
         dist = str(round(cur.dist, 3))
+        cur = cur.next
         if cur == head:
             break
     print("\t <- " + cur.data[1] + " " + str(cur.data[2][0]) + " " + str(cur.data[2][1]) + " distance " + dist + "km\n")
@@ -135,19 +205,27 @@ def print_beers():
 
 def get_beer_types():
     """"gets all collected beer types"""
-    cur = sql.cursor()
-    query = "SELECT DISTINCT name FROM beers WHERE brewery_id IN (" +\
-            ','.join([str(i.data[0]) for i in list(included_dict.values()) if i.data[0] != -1]) + ") ORDER BY name ASC"
-    cur.execute(query)
-    data = cur.fetchall()
-    cur.close()
-    return data
+    try:
+        cur = sql.cursor()
+        query = "SELECT DISTINCT name FROM beers WHERE brewery_id IN (" +\
+                ','.join([str(i.data[0]) for i in list(included_dict.values()) if i.data[0] != -1]) + ") ORDER BY name ASC"
+        cur.execute(query)
+        data = cur.fetchall()
+        cur.close()
+        return data
+    except Exception as ex:
+        print("Something went wrong, errno:2")  # do something
 
 
 if __name__ == "__main__":
+    if len(argv) != 3:
+        home = (51.355468, 11.100790)
+        print("Not enough arguments executing default...")
+        print("Default HOME location: " + str(home))
+    else:
+        home = (float(argv[1]), float(argv[2]))
     start = pc()
     sql = mysql.connector.connect(host="localhost", user="root", passwd="", database="beer_test")
-    home = (51.355468, 11.100790)
     full_distance = 2000
     head = Node((-1, "HOME", home), 0, None, 0.0, True)
     head.next = head
@@ -156,6 +234,7 @@ if __name__ == "__main__":
     distance_matrix = filter_nearest()
     if len(nearest_dict) > 1:
         traveled = full_distance - make_route(full_distance)
+        traveled = full_distance - post_route_optimization(full_distance - traveled)  # optimization layer
         tests.test_route(head, traveled)
         f = [i.data[0] for i in list(included_dict.values()) if i.data[0] != -1]
         print_breweries()
