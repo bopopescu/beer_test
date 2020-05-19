@@ -2,7 +2,7 @@ import mysql.connector
 import math
 import numpy as np
 import tests
-from sys import argv
+from sys import argv, exit
 from time import perf_counter_ns as pc
 
 
@@ -65,6 +65,7 @@ def make_route(distance):
         return distance
     except Exception as ex:
         print("Something went wrong, errno:4")  # do something
+        exit(255)
 
 
 def find_worst():
@@ -131,6 +132,7 @@ def post_route_optimization(left_dist):
         return left_dist
     except Exception as ex:
         print("Something went wrong, errno:3")  # do something
+        exit(255)
 
 
 def get_distance(start, finish):
@@ -151,7 +153,8 @@ def get_distance(start, finish):
 
 def filter_nearest():
     """"function: gets minimal info about breweries from database -> filters out unreachable breweries >
-    makes distance matrix from leftovers and creates global dict {distance_matrix_index: brewery}"""
+    makes distance matrix from leftovers and creates global dict {distance_matrix_index: brewery}
+    :returns distance matrix"""
     global nearest_dict
     try:
         # get required data of breweries
@@ -179,6 +182,7 @@ def filter_nearest():
         return dist_mat
     except Exception as ex:
         print("Something went wrong, errno:1")  # do something
+        exit(255)
 
 
 def print_breweries():
@@ -215,6 +219,7 @@ def get_beer_types():
         return data
     except Exception as ex:
         print("Something went wrong, errno:2")  # do something
+        exit(255)
 
 
 if __name__ == "__main__":
@@ -236,7 +241,6 @@ if __name__ == "__main__":
         traveled = full_distance - make_route(full_distance)
         traveled = full_distance - post_route_optimization(full_distance - traveled)  # optimization layer
         tests.test_route(head, traveled)
-        f = [i.data[0] for i in list(included_dict.values()) if i.data[0] != -1]
         print_breweries()
         beers = get_beer_types()
         print_beers()

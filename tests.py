@@ -1,3 +1,4 @@
+from sys import exit
 from calc import get_distance
 
 
@@ -10,4 +11,5 @@ def test_route(head, distance):
         if current == head:
             break
     if round(distance, 6) != round(dist, 6):  # millimeter accuracy
-        raise Exception("distances does not macth")
+        print("distances does not macth")
+        exit(255)
